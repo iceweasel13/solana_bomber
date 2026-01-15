@@ -20,6 +20,12 @@ pub struct GlobalState {
     /// Emergency pause flag
     pub paused: bool,
 
+    /// Granular toggle: Hero minting enabled
+    pub minting_enabled: bool,
+
+    /// Granular toggle: House upgrades enabled
+    pub house_upgrades_enabled: bool,
+
     /// Block/timestamp when game started
     pub start_block: i64,
 
@@ -75,6 +81,8 @@ impl GlobalState {
         32 + // reward_token_mint
         1 + // game_has_started
         1 + // paused
+        1 + // minting_enabled
+        1 + // house_upgrades_enabled
         8 + // start_block
         8 + // house_count
         8 + // unique_heroes_count

@@ -44,6 +44,8 @@ pub mod solana_bomber {
         // Game State
         global_state.game_has_started = false;
         global_state.paused = false;
+        global_state.minting_enabled = true;
+        global_state.house_upgrades_enabled = true;
         global_state.start_block = 0;
         global_state.house_count = 0;
         global_state.unique_heroes_count = 0;
@@ -153,6 +155,55 @@ pub mod solana_bomber {
         Ok(())
     }
 
+    /// Toggle hero minting (admin only)
+    pub fn toggle_minting(ctx: Context<AdminAction>, enabled: bool) -> Result<()> {
+        let global_state = &mut ctx.accounts.global_state;
+        global_state.minting_enabled = enabled;
+
+        msg!("Hero minting enabled: {}", enabled);
+        Ok(())
+    }
+
+    /// Toggle house upgrades (admin only)
+    pub fn toggle_house_upgrades(ctx: Context<AdminAction>, enabled: bool) -> Result<()> {
+        let global_state = &mut ctx.accounts.global_state;
+        global_state.house_upgrades_enabled = enabled;
+
+        msg!("House upgrades enabled: {}", enabled);
+        Ok(())
+    }
+
+    /// Withdraw SPL tokens from contract PDA to treasury (admin only)
+    pub fn withdraw_token_funds(
+        ctx: Context<WithdrawTokenFunds>,
+        amount: u64,
+    ) -> Result<()> {
+        let global_state = &ctx.accounts.global_state;
+
+        // Transfer tokens from program PDA to treasury
+        let seeds = &[
+            b"global_state".as_ref(),
+            &[global_state.bump],
+        ];
+        let signer = &[&seeds[..]];
+
+        token::transfer(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                token::Transfer {
+                    from: ctx.accounts.program_token_account.to_account_info(),
+                    to: ctx.accounts.treasury_token_account.to_account_info(),
+                    authority: ctx.accounts.global_state.to_account_info(),
+                },
+                signer,
+            ),
+            amount,
+        )?;
+
+        msg!("Withdrawn {} tokens to treasury", amount);
+        Ok(())
+    }
+
     // ========================================================================
     // USER FUNCTIONS
     // ========================================================================
@@ -237,6 +288,7 @@ pub mod solana_bomber {
         let clock = Clock::get()?;
 
         require!(!global_state.paused, GameError::GamePaused);
+        require!(global_state.minting_enabled, GameError::MintingDisabled);
         require!(quantity >= 1 && quantity <= 10, GameError::InvalidHeroQuantity);
 
         // Calculate total cost (100 coins per hero)
@@ -440,6 +492,164 @@ pub mod solana_bomber {
         Ok(())
     }
 
+    /// Bulk place heroes on grid (multiple heroes in single transaction)
+    pub fn bulk_place_heroes(
+        ctx: Context<ModifyGrid>,
+        placements: Vec<HeroPlacement>,
+    ) -> Result<()> {
+        let user_account = &mut ctx.accounts.user_account;
+        let clock = Clock::get()?;
+
+        // Pre-validate all placements before making any changes
+        for placement in &placements {
+            // Validate hero exists
+            require!(
+                (placement.hero_index as usize) < user_account.inventory.len(),
+                GameError::InvalidHeroIndex
+            );
+
+            // Validate coordinates
+            require!(
+                user_account.is_valid_coord(placement.x, placement.y),
+                GameError::InvalidGridCoordinates
+            );
+
+            // Validate position is not occupied (including by other heroes in this batch)
+            require!(
+                !user_account.is_coord_occupied(placement.x, placement.y),
+                GameError::GridPositionOccupied
+            );
+
+            // Check if hero is already on grid
+            require!(
+                user_account.find_hero_on_grid(placement.hero_index).is_none(),
+                GameError::HeroAlreadyOnMap
+            );
+        }
+
+        // Validate total restroom capacity
+        let current_restroom = user_account.count_restroom_slots();
+        let new_restroom = placements.iter().filter(|p| p.is_restroom).count();
+        let max_restroom = user_account.get_max_restroom_slots();
+        require!(
+            current_restroom + new_restroom <= max_restroom,
+            GameError::RestroomFull
+        );
+
+        // All validations passed - now apply all placements
+        for placement in placements {
+            // Remove from map if present
+            if let Some(pos) = user_account
+                .active_map
+                .iter()
+                .position(|&x| x == placement.hero_index)
+            {
+                user_account.active_map.remove(pos);
+            }
+
+            // Place hero on grid
+            let tile = HouseTile {
+                x: placement.x,
+                y: placement.y,
+                hero_id: placement.hero_index,
+                is_restroom: placement.is_restroom,
+            };
+            user_account.house_occupied_coords.push(tile);
+
+            // Update hero timestamp
+            let hero = &mut user_account.inventory[placement.hero_index as usize];
+            hero.last_action_time = clock.unix_timestamp;
+
+            msg!(
+                "Hero {} placed on grid at ({}, {}) {}",
+                placement.hero_index,
+                placement.x,
+                placement.y,
+                if placement.is_restroom {
+                    "(Restroom)"
+                } else {
+                    "(Bench)"
+                }
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Bulk move heroes to map (multiple heroes in single transaction)
+    pub fn bulk_move_to_map(
+        ctx: Context<MoveHeroToMap>,
+        hero_indices: Vec<u16>,
+    ) -> Result<()> {
+        let global_state = &ctx.accounts.global_state;
+        let user_account = &mut ctx.accounts.user_account;
+        let clock = Clock::get()?;
+
+        require!(!global_state.paused, GameError::GamePaused);
+
+        // Pre-validate all heroes before making any changes
+        for &hero_index in &hero_indices {
+            // Validate hero exists
+            require!(
+                (hero_index as usize) < user_account.inventory.len(),
+                GameError::InvalidHeroIndex
+            );
+
+            // Hero must not already be on map
+            require!(
+                !user_account.active_map.contains(&hero_index),
+                GameError::HeroAlreadyOnMap
+            );
+
+            // Check hero HP
+            require!(
+                !user_account.inventory[hero_index as usize].is_sleeping(),
+                GameError::HeroIsSleeping
+            );
+        }
+
+        // Check map capacity
+        let new_map_size = user_account.active_map.len() + hero_indices.len();
+        require!(new_map_size <= 15, GameError::MapFull);
+
+        // All validations passed - now move all heroes
+        for hero_index in hero_indices {
+            // Remove from grid if present
+            if let Some(pos) = user_account
+                .house_occupied_coords
+                .iter()
+                .position(|tile| tile.hero_id == hero_index)
+            {
+                user_account.house_occupied_coords.remove(pos);
+            }
+
+            // Set mining start time
+            user_account.inventory[hero_index as usize].last_action_time = clock.unix_timestamp;
+
+            // Add to map
+            user_account.active_map.push(hero_index);
+
+            msg!("Hero {} moved to map", hero_index);
+        }
+
+        // Update player power once at the end (efficient)
+        user_account.player_power = user_account
+            .active_map
+            .iter()
+            .filter_map(|&idx| user_account.inventory.get(idx as usize))
+            .filter(|h| h.is_active())
+            .map(|h| h.calculate_hmp() as u64)
+            .sum();
+
+        msg!(
+            "Bulk moved {} heroes to map, player power: {}",
+            user_account.active_map.len(),
+            user_account.player_power
+        );
+
+        Ok(())
+    }
+
     /// Claim mining rewards with time-based calculation and referral bonuses
     pub fn claim_rewards(ctx: Context<ClaimRewards>) -> Result<()> {
         let clock = Clock::get()?;
@@ -611,6 +821,7 @@ pub mod solana_bomber {
         let clock = Clock::get()?;
 
         require!(!global_state.paused, GameError::GamePaused);
+        require!(global_state.house_upgrades_enabled, GameError::HouseUpgradesDisabled);
         require!(user_account.house_level < 6, GameError::MaxHouseLevelReached);
 
         // Check cooldown
@@ -1158,6 +1369,26 @@ pub struct AdminAction<'info> {
 }
 
 #[derive(Accounts)]
+pub struct WithdrawTokenFunds<'info> {
+    #[account(
+        seeds = [b"global_state"],
+        bump = global_state.bump,
+        has_one = authority
+    )]
+    pub global_state: Account<'info, GlobalState>,
+
+    #[account(mut)]
+    pub program_token_account: Account<'info, TokenAccount>,
+
+    #[account(mut)]
+    pub treasury_token_account: Account<'info, TokenAccount>,
+
+    pub authority: Signer<'info>,
+
+    pub token_program: Program<'info, Token>,
+}
+
+#[derive(Accounts)]
 pub struct ViewUserAccount<'info> {
     #[account(
         seeds = [b"global_state"],
@@ -1184,6 +1415,14 @@ pub struct ViewGlobalState<'info> {
 // ============================================================================
 // VIEW FUNCTION RETURN DATA STRUCTURES
 // ============================================================================
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+pub struct HeroPlacement {
+    pub hero_index: u16,
+    pub x: u8,
+    pub y: u8,
+    pub is_restroom: bool,
+}
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct PendingRewardsData {

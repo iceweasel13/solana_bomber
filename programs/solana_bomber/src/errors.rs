@@ -9,6 +9,12 @@ pub enum GameError {
     #[msg("Game has not started yet")]
     GameNotStarted,
 
+    #[msg("Hero minting is currently disabled")]
+    MintingDisabled,
+
+    #[msg("House upgrades are currently disabled")]
+    HouseUpgradesDisabled,
+
     #[msg("Unauthorized: Admin only")]
     Unauthorized,
 
