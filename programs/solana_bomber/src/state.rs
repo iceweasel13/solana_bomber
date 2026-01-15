@@ -1,159 +1,288 @@
 use anchor_lang::prelude::*;
 
-/// Global game state - singleton PDA
+/// Global game state - singleton PDA with dynamic configuration
 #[account]
 pub struct GlobalState {
-    /// Admin authority (can pause/unpause game)
+    // ========== Core Identity ==========
+    /// Admin authority (owner)
     pub authority: Pubkey,
 
-    /// The SPL Token mint for game rewards
+    /// Treasury wallet (bombtoshi)
+    pub dev_treasury: Pubkey,
+
+    /// BOMBcoin SPL Token mint
     pub reward_token_mint: Pubkey,
 
-    /// Total coins mined (for halving logic)
+    // ========== Game State ==========
+    /// Has the game started?
+    pub game_has_started: bool,
+
+    /// Emergency pause flag
+    pub paused: bool,
+
+    /// Block/timestamp when game started
+    pub start_block: i64,
+
+    /// Total number of houses initialized
+    pub house_count: u64,
+
+    /// Total unique heroes minted globally
+    pub unique_heroes_count: u64,
+
+    /// Total hash power (sum of all active players' power)
+    pub total_hash_power: u64,
+
+    /// Cumulative BOMBcoin per power (MasterChef-style accounting)
+    pub cumulative_bombcoin_per_power: u128,
+
+    // ========== Dynamic Economic Parameters ==========
+    /// Initial house purchase price (SOL, in lamports)
+    pub initial_house_price: u64,
+
+    /// Base reward rate (BOMBcoin per hour at phase 1)
+    pub initial_bombcoin_per_block: u64,
+
+    /// Halving interval (supply milestone for rate reduction)
+    pub halving_interval: u64,
+
+    /// Burn percentage (0-10000, where 10000 = 100%)
+    pub burn_pct: u16,
+
+    /// Referral fee percentage (0-10000, where 10000 = 100%)
+    pub referral_fee: u16,
+
+    /// Rewards calculation precision multiplier
+    pub rewards_precision: u64,
+
+    // ========== Accounting ==========
+    /// Total BOMBcoin mined (for halving logic)
     pub total_mined: u64,
 
     /// Total coins burned from hero minting
     pub total_burned: u64,
 
-    /// Reward pool from 50% of mint fees
+    /// Reward pool from minting fees
     pub reward_pool: u64,
 
-    /// Developer treasury for SOL fees
-    pub dev_treasury: Pubkey,
-
-    /// Emergency pause flag
-    pub paused: bool,
-
-    /// Total heroes minted across all players (tracking)
-    pub total_heroes_minted: u64,
-
-    /// Bump seed for PDA
+    /// PDA bump seed
     pub bump: u8,
 }
 
 impl GlobalState {
     pub const LEN: usize = 8 + // discriminator
         32 + // authority
+        32 + // dev_treasury
         32 + // reward_token_mint
+        1 + // game_has_started
+        1 + // paused
+        8 + // start_block
+        8 + // house_count
+        8 + // unique_heroes_count
+        8 + // total_hash_power
+        16 + // cumulative_bombcoin_per_power
+        8 + // initial_house_price
+        8 + // initial_bombcoin_per_block
+        8 + // halving_interval
+        2 + // burn_pct
+        2 + // referral_fee
+        8 + // rewards_precision
         8 + // total_mined
         8 + // total_burned
         8 + // reward_pool
-        32 + // dev_treasury
-        1 + // paused
-        8 + // total_heroes_minted
-        1; // bump
-}
-
-/// Per-player account - stores all game state for one user
-#[account]
-pub struct UserAccount {
-    /// Owner wallet
-    pub owner: Pubkey,
-
-    /// Current house level (1-6)
-    pub house_level: u8,
-
-    /// Timestamp when last house upgrade started (for cooldown)
-    pub house_upgrade_start: i64,
-
-    /// In-game coin balance (not SPL tokens, internal currency)
-    pub coin_balance: u64,
-
-    /// Referrer wallet (gets 2.5% on every claim)
-    pub referrer: Option<Pubkey>,
-
-    /// All owned heroes (unlimited capacity)
-    pub inventory: Vec<Hero>,
-
-    /// Heroes currently in the house (max 21)
-    /// Stores indices into inventory Vec
-    pub active_house: Vec<u16>,
-
-    /// Heroes currently mining on map (max 15)
-    /// Stores indices into inventory Vec
-    pub active_map: Vec<u16>,
-
-    /// Heroes in restroom slots (subset of active_house)
-    /// Count depends on house_level: Lv1=4, Lv2=6, Lv3=8, Lv4=10, Lv5=12, Lv6=15
-    /// Stores indices into inventory Vec
-    pub restroom_slots: Vec<u16>,
-
-    /// Bump seed for PDA
-    pub bump: u8,
-}
-
-impl UserAccount {
-    /// Base size (without dynamic Vecs)
-    pub const BASE_LEN: usize = 8 + // discriminator
-        32 + // owner
-        1 + // house_level
-        8 + // house_upgrade_start
-        8 + // coin_balance
-        33 + // referrer (1 + 32)
-        4 + // inventory vec length
-        4 + // active_house vec length
-        4 + // active_map vec length
-        4 + // restroom_slots vec length
         1; // bump
 
-    /// Get restroom capacity based on house level
-    pub fn get_restroom_capacity(&self) -> u8 {
-        match self.house_level {
+    /// Calculate current BOMBcoin per block based on halving
+    pub fn get_bombcoin_per_block(&self) -> u64 {
+        if self.halving_interval == 0 {
+            return self.initial_bombcoin_per_block;
+        }
+
+        let halvings = self.total_mined / self.halving_interval;
+        let mut rate = self.initial_bombcoin_per_block;
+
+        for _ in 0..halvings {
+            rate = rate / 2;
+            if rate == 0 {
+                break;
+            }
+        }
+
+        rate
+    }
+
+    /// Calculate blocks until next halving
+    pub fn blocks_until_next_halving(&self) -> u64 {
+        if self.halving_interval == 0 {
+            return u64::MAX;
+        }
+
+        let next_milestone = ((self.total_mined / self.halving_interval) + 1) * self.halving_interval;
+        next_milestone.saturating_sub(self.total_mined)
+    }
+}
+
+/// House tile in the grid (each position can contain a hero)
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct HouseTile {
+    /// X coordinate in grid
+    pub x: u8,
+
+    /// Y coordinate in grid
+    pub y: u8,
+
+    /// Hero inventory index (u16::MAX if empty)
+    pub hero_id: u16,
+
+    /// Is this tile a restroom (boosted recovery)?
+    pub is_restroom: bool,
+}
+
+impl HouseTile {
+    pub fn is_empty(&self) -> bool {
+        self.hero_id == u16::MAX
+    }
+
+    pub fn empty(x: u8, y: u8) -> Self {
+        Self {
+            x,
+            y,
+            hero_id: u16::MAX,
+            is_restroom: false,
+        }
+    }
+}
+
+/// House grid dimensions by level
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GridDimensions {
+    pub width: u8,
+    pub height: u8,
+}
+
+impl GridDimensions {
+    /// Get grid size for a given house level
+    pub fn for_level(level: u8) -> Self {
+        match level {
+            1 => Self { width: 4, height: 4 },  // 16 tiles
+            2 => Self { width: 4, height: 6 },  // 24 tiles
+            3 => Self { width: 5, height: 6 },  // 30 tiles
+            4 => Self { width: 6, height: 6 },  // 36 tiles
+            5 => Self { width: 6, height: 7 },  // 42 tiles
+            6 => Self { width: 7, height: 7 },  // 49 tiles
+            _ => Self { width: 4, height: 4 },  // Default to level 1
+        }
+    }
+
+    /// Get maximum restroom slots for a given house level
+    pub fn max_restroom_slots(level: u8) -> usize {
+        match level {
             1 => 4,
             2 => 6,
             3 => 8,
             4 => 10,
             5 => 12,
             6 => 15,
-            _ => 4, // Default to level 1
+            _ => 4,
         }
     }
 
-    /// Get recovery multiplier for restroom (as basis points, e.g., 200 = 2.0x)
-    pub fn get_restroom_multiplier(&self) -> u16 {
-        match self.house_level {
-            1 => 100,   // 1.0x (same as bench)
-            2 => 200,   // 2.0x
-            3 => 500,   // 5.0x
-            4 => 800,   // 8.0x
-            5 => 1100,  // 11.0x
-            6 => 1400,  // 14.0x
-            _ => 100,   // Default
+    /// Get upgrade cost in coins for next level
+    pub fn upgrade_cost(current_level: u8) -> u64 {
+        match current_level {
+            1 => 500,
+            2 => 1000,
+            3 => 2000,
+            4 => 4000,
+            5 => 8000,
+            _ => 0,
         }
     }
 
-    /// Get house upgrade cost in coins
-    pub fn get_upgrade_cost(&self) -> u64 {
-        match self.house_level {
-            1 => 720,      // Upgrade to Lv2
-            2 => 2_400,    // Upgrade to Lv3
-            3 => 5_400,    // Upgrade to Lv4
-            4 => 9_600,    // Upgrade to Lv5
-            5 => 15_000,   // Upgrade to Lv6
-            _ => u64::MAX, // Can't upgrade beyond Lv6
-        }
-    }
-
-    /// Get house upgrade cooldown in seconds
-    pub fn get_upgrade_cooldown(&self) -> i64 {
-        match self.house_level {
-            1 => 2 * 3600,   // 2 hours
-            2 => 6 * 3600,   // 6 hours
-            3 => 12 * 3600,  // 12 hours
-            4 => 18 * 3600,  // 18 hours
-            5 => 24 * 3600,  // 24 hours
-            _ => 0,          // No cooldown for Lv6 (max level)
+    /// Get upgrade cooldown in seconds
+    pub fn upgrade_cooldown(current_level: u8) -> i64 {
+        match current_level {
+            1 => 3600,      // 1 hour
+            2 => 7200,      // 2 hours
+            3 => 14400,     // 4 hours
+            4 => 28800,     // 8 hours
+            5 => 57600,     // 16 hours
+            _ => 0,
         }
     }
 }
 
-/// Individual hero struct (NOT an NFT, just a data struct)
+/// Hero rarity tiers (affects drop rates and stat ranges)
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HeroRarity {
+    Common,      // 50% drop rate
+    Uncommon,    // 30% drop rate
+    Rare,        // 15% drop rate
+    SuperRare,   // 4% drop rate
+    Epic,        // 0.9% drop rate
+    Legendary,   // 0.1% drop rate
+}
+
+impl HeroRarity {
+    /// Determine rarity from a random value (0-1000)
+    pub fn from_roll(roll: u16) -> Self {
+        match roll {
+            0..=499 => HeroRarity::Common,
+            500..=799 => HeroRarity::Uncommon,
+            800..=949 => HeroRarity::Rare,
+            950..=989 => HeroRarity::SuperRare,
+            990..=998 => HeroRarity::Epic,
+            999..=1000 => HeroRarity::Legendary,
+            _ => HeroRarity::Common,
+        }
+    }
+
+    /// Get stat ranges for this rarity
+    pub fn stat_range(&self) -> (u32, u32) {
+        match self {
+            HeroRarity::Common => (10, 30),
+            HeroRarity::Uncommon => (25, 50),
+            HeroRarity::Rare => (45, 75),
+            HeroRarity::SuperRare => (70, 100),
+            HeroRarity::Epic => (95, 130),
+            HeroRarity::Legendary => (125, 160),
+        }
+    }
+
+    /// Get bomb count range for this rarity
+    pub fn bomb_count_range(&self) -> (u8, u8) {
+        match self {
+            HeroRarity::Common => (1, 1),
+            HeroRarity::Uncommon => (1, 2),
+            HeroRarity::Rare => (2, 2),
+            HeroRarity::SuperRare => (2, 3),
+            HeroRarity::Epic => (3, 4),
+            HeroRarity::Legendary => (4, 5),
+        }
+    }
+
+    /// Get bomb range for this rarity
+    pub fn bomb_range_range(&self) -> (u8, u8) {
+        match self {
+            HeroRarity::Common => (1, 2),
+            HeroRarity::Uncommon => (2, 3),
+            HeroRarity::Rare => (3, 4),
+            HeroRarity::SuperRare => (4, 5),
+            HeroRarity::Epic => (5, 6),
+            HeroRarity::Legendary => (6, 7),
+        }
+    }
+}
+
+/// Individual hero (template-based with 9 skin archetypes)
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct Hero {
-    /// Unique ID within user's inventory (0-based index)
+    /// Unique ID within user's inventory
     pub id: u16,
 
-    /// Hero rarity (affects stat ranges)
+    /// Visual skin template (1-9 fixed archetypes)
+    pub skin_id: u8,
+
+    /// Hero rarity (determines stats and drop rate)
     pub rarity: HeroRarity,
 
     /// Power stat (affects HMP and reward)
@@ -165,10 +294,10 @@ pub struct Hero {
     /// Stamina stat (affects HP recovery rate)
     pub stamina: u32,
 
-    /// Max stamina (upper limit for recovery)
+    /// Max stamina cap
     pub max_stamina: u32,
 
-    /// Bomb number (multiplier for power and HP drain)
+    /// Bomb count (multiplier for power and HP drain)
     pub bomb_number: u8,
 
     /// Bomb range (affects HMP calculation)
@@ -185,189 +314,165 @@ pub struct Hero {
 }
 
 impl Hero {
-    pub const LEN: usize =
-        2 + // id
-        1 + // rarity
-        4 + // power
-        4 + // speed
-        4 + // stamina
-        4 + // max_stamina
-        1 + // bomb_number
-        1 + // bomb_range
-        4 + // hp
-        4 + // max_hp
-        8; // last_action_time
-
-    /// Calculate this hero's mining power (HMP)
-    /// Formula: (Power × Bomb_Number) + (Bomb_Range × 0.5) + (Speed × 2)
+    /// Calculate HMP (Hero Mining Power)
+    /// Formula: HMP = (Power × Bomb_Count) + (Bomb_Range × 0.5) + (Speed × 2)
     pub fn calculate_hmp(&self) -> f64 {
         let power_component = (self.power * self.bomb_number as u32) as f64;
         let range_component = (self.bomb_range as f64) * 0.5;
         let speed_component = (self.speed as f64) * 2.0;
-
         power_component + range_component + speed_component
     }
 
-    /// Calculate HP drained over time (Speed-based)
-    /// Formula: (Elapsed_Seconds / 60) × Speed
-    /// Speed 1 = 1 HP per minute, Speed 5 = 5 HP per minute
+    /// Calculate HP drain over time
+    /// Formula: HP drain = (Elapsed_Seconds / 60) × Hero_Speed
     pub fn calculate_hp_drain(&self, elapsed_seconds: u64) -> u32 {
         let minutes = elapsed_seconds / 60;
         (minutes * self.speed as u64) as u32
+    }
+
+    /// Calculate HP recovery over time
+    /// Formula: HP Recovery = (Elapsed_Seconds / 120) × Stamina × Location_Multiplier
+    pub fn calculate_hp_recovery(&self, elapsed_seconds: u64, location_multiplier: f64) -> u32 {
+        let ticks = elapsed_seconds / 120; // 120-second intervals
+        let base_recovery = (ticks * self.stamina as u64) as f64;
+        (base_recovery * location_multiplier) as u32
     }
 
     /// Check if hero is sleeping (HP = 0)
     pub fn is_sleeping(&self) -> bool {
         self.hp == 0
     }
-}
 
-/// Hero rarity tiers with their probabilities
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum HeroRarity {
-    Common,      // 84.00%
-    Uncommon,    // 10.00%
-    Rare,        // 4.50%
-    SuperRare,   // 1.00%
-    Epic,        // 0.40%
-    Legendary,   // 0.10%
-}
-
-impl HeroRarity {
-    /// Roll a random rarity using a seed (0-9999)
-    pub fn roll(seed: u16) -> Self {
-        match seed {
-            0..=8399 => HeroRarity::Common,
-            8400..=9399 => HeroRarity::Uncommon,
-            9400..=9849 => HeroRarity::Rare,
-            9850..=9949 => HeroRarity::SuperRare,
-            9950..=9989 => HeroRarity::Epic,
-            9990..=9999 => HeroRarity::Legendary,
-            _ => HeroRarity::Common, // Fallback
-        }
-    }
-
-    /// Get stat ranges for this rarity [min, max]
-    pub fn get_power_range(&self) -> (u32, u32) {
-        match self {
-            HeroRarity::Common => (1, 3),
-            HeroRarity::Uncommon => (3, 5),
-            HeroRarity::Rare => (5, 8),
-            HeroRarity::SuperRare => (8, 12),
-            HeroRarity::Epic => (12, 18),
-            HeroRarity::Legendary => (18, 25),
-        }
-    }
-
-    pub fn get_speed_range(&self) -> (u32, u32) {
-        match self {
-            HeroRarity::Common => (1, 2),
-            HeroRarity::Uncommon => (2, 3),
-            HeroRarity::Rare => (3, 5),
-            HeroRarity::SuperRare => (5, 7),
-            HeroRarity::Epic => (7, 10),
-            HeroRarity::Legendary => (10, 15),
-        }
-    }
-
-    pub fn get_stamina_range(&self) -> (u32, u32) {
-        match self {
-            HeroRarity::Common => (3, 5),
-            HeroRarity::Uncommon => (5, 8),
-            HeroRarity::Rare => (8, 12),
-            HeroRarity::SuperRare => (12, 18),
-            HeroRarity::Epic => (18, 25),
-            HeroRarity::Legendary => (25, 35),
-        }
-    }
-
-    pub fn get_bomb_number_range(&self) -> (u8, u8) {
-        match self {
-            HeroRarity::Common => (1, 1),
-            HeroRarity::Uncommon => (1, 2),
-            HeroRarity::Rare => (2, 2),
-            HeroRarity::SuperRare => (2, 3),
-            HeroRarity::Epic => (3, 3),
-            HeroRarity::Legendary => (3, 4),
-        }
-    }
-
-    pub fn get_bomb_range_range(&self) -> (u8, u8) {
-        match self {
-            HeroRarity::Common => (1, 2),
-            HeroRarity::Uncommon => (2, 3),
-            HeroRarity::Rare => (3, 4),
-            HeroRarity::SuperRare => (4, 5),
-            HeroRarity::Epic => (5, 6),
-            HeroRarity::Legendary => (6, 8),
-        }
-    }
-
-    pub fn get_hp_range(&self) -> (u32, u32) {
-        match self {
-            HeroRarity::Common => (50, 100),
-            HeroRarity::Uncommon => (100, 150),
-            HeroRarity::Rare => (150, 250),
-            HeroRarity::SuperRare => (250, 400),
-            HeroRarity::Epic => (400, 600),
-            HeroRarity::Legendary => (600, 1000),
-        }
+    /// Check if hero is active (HP > 0)
+    pub fn is_active(&self) -> bool {
+        self.hp > 0
     }
 }
 
-/// House upgrade information
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug)]
-pub struct HouseUpgradeConfig {
-    pub level: u8,
-    pub restroom_slots: u8,
-    pub cost_coins: u64,
-    pub cooldown_seconds: i64,
-    pub recovery_multiplier: u16, // Basis points (100 = 1.0x)
+/// Per-player account - stores all game state for one user
+#[account]
+pub struct UserAccount {
+    /// Owner wallet
+    pub owner: Pubkey,
+
+    // ========== House System ==========
+    /// Has player purchased initial house?
+    pub initialized_starter_house: bool,
+
+    /// Current house level (1-6)
+    pub house_level: u8,
+
+    /// Timestamp of last house upgrade (for cooldown)
+    pub last_house_upgrade_timestamp: i64,
+
+    /// Grid dimensions based on house level
+    pub grid_width: u8,
+    pub grid_height: u8,
+
+    /// House grid tiles (expandable matrix)
+    /// Vector of occupied tiles with coordinates and hero IDs
+    pub house_occupied_coords: Vec<HouseTile>,
+
+    // ========== Heroes ==========
+    /// All owned heroes (unlimited capacity)
+    pub inventory: Vec<Hero>,
+
+    /// Heroes currently active on map (mining)
+    /// Stores indices into inventory Vec
+    pub active_map: Vec<u16>,
+
+    // ========== Economy ==========
+    /// In-game coin balance (not SPL tokens)
+    pub coin_balance: u64,
+
+    /// Total mining power (cached sum of active heroes' HMP)
+    pub player_power: u64,
+
+    /// Pending unclaimed BOMBcoin rewards
+    pub player_pending_rewards: u64,
+
+    /// Last block when rewards were claimed
+    pub last_reward_block: i64,
+
+    /// Reward debt (for MasterChef accounting)
+    pub reward_debt: u128,
+
+    // ========== Referral System ==========
+    /// Referrer wallet (can only be set once)
+    pub referrer: Option<Pubkey>,
+
+    /// Total bonus paid from referrals
+    pub referral_bonus_paid: u64,
+
+    /// List of users referred by this player
+    pub referrals: Vec<Pubkey>,
+
+    /// PDA bump seed
+    pub bump: u8,
 }
 
-impl HouseUpgradeConfig {
-    pub const LEVELS: [HouseUpgradeConfig; 6] = [
-        HouseUpgradeConfig {
-            level: 1,
-            restroom_slots: 4,
-            cost_coins: 0, // Entry is 0.25 SOL, not coins
-            cooldown_seconds: 0,
-            recovery_multiplier: 100, // 1.0x
-        },
-        HouseUpgradeConfig {
-            level: 2,
-            restroom_slots: 6,
-            cost_coins: 720,
-            cooldown_seconds: 2 * 3600,
-            recovery_multiplier: 200, // 2.0x
-        },
-        HouseUpgradeConfig {
-            level: 3,
-            restroom_slots: 8,
-            cost_coins: 2_400,
-            cooldown_seconds: 6 * 3600,
-            recovery_multiplier: 500, // 5.0x
-        },
-        HouseUpgradeConfig {
-            level: 4,
-            restroom_slots: 10,
-            cost_coins: 5_400,
-            cooldown_seconds: 12 * 3600,
-            recovery_multiplier: 800, // 8.0x
-        },
-        HouseUpgradeConfig {
-            level: 5,
-            restroom_slots: 12,
-            cost_coins: 9_600,
-            cooldown_seconds: 18 * 3600,
-            recovery_multiplier: 1100, // 11.0x
-        },
-        HouseUpgradeConfig {
-            level: 6,
-            restroom_slots: 15,
-            cost_coins: 15_000,
-            cooldown_seconds: 24 * 3600,
-            recovery_multiplier: 1400, // 14.0x
-        },
-    ];
+impl UserAccount {
+    // Maximum size estimate (variable due to Vecs)
+    // Base size + reasonable maximums for vectors
+    pub const MAX_LEN: usize = 8 + // discriminator
+        32 + // owner
+        1 + // initialized_starter_house
+        1 + // house_level
+        8 + // last_house_upgrade_timestamp
+        1 + // grid_width
+        1 + // grid_height
+        4 + (50 * 6) + // house_occupied_coords (max ~50 tiles)
+        4 + (100 * 120) + // inventory (max ~100 heroes, ~120 bytes each)
+        4 + (15 * 2) + // active_map (max 15 heroes)
+        8 + // coin_balance
+        8 + // player_power
+        8 + // player_pending_rewards
+        8 + // last_reward_block
+        16 + // reward_debt
+        1 + 32 + // referrer (Option<Pubkey>)
+        8 + // referral_bonus_paid
+        4 + (50 * 32) + // referrals (max ~50 referrals)
+        1; // bump
+
+    /// Get current house upgrade cost
+    pub fn get_upgrade_cost(&self) -> u64 {
+        GridDimensions::upgrade_cost(self.house_level)
+    }
+
+    /// Get current house upgrade cooldown duration
+    pub fn get_upgrade_cooldown(&self) -> i64 {
+        GridDimensions::upgrade_cooldown(self.house_level)
+    }
+
+    /// Get max restroom slots for current house level
+    pub fn get_max_restroom_slots(&self) -> usize {
+        GridDimensions::max_restroom_slots(self.house_level)
+    }
+
+    /// Count current restroom slots in use
+    pub fn count_restroom_slots(&self) -> usize {
+        self.house_occupied_coords
+            .iter()
+            .filter(|tile| tile.is_restroom && !tile.is_empty())
+            .count()
+    }
+
+    /// Find hero on grid by inventory index
+    pub fn find_hero_on_grid(&self, hero_index: u16) -> Option<&HouseTile> {
+        self.house_occupied_coords
+            .iter()
+            .find(|tile| tile.hero_id == hero_index)
+    }
+
+    /// Check if coordinate is valid for current grid
+    pub fn is_valid_coord(&self, x: u8, y: u8) -> bool {
+        x < self.grid_width && y < self.grid_height
+    }
+
+    /// Check if coordinate is occupied
+    pub fn is_coord_occupied(&self, x: u8, y: u8) -> bool {
+        self.house_occupied_coords
+            .iter()
+            .any(|tile| tile.x == x && tile.y == y && !tile.is_empty())
+    }
 }
