@@ -9,7 +9,7 @@ use state::*;
 use utils::*;
 use errors::*;
 
-declare_id!("97R9ZM4v9TRZS39cTEgQfr6Ur3N32YhKzcCYNozgqBX7");
+declare_id!("5ADLMwFhWfUHd1rxbRa3DZ8mVCZMDoJryfMi1dAxRNpc");
 
 #[program]
 pub mod solana_bomber {

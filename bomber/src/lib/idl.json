@@ -1,0 +1,2915 @@
+{
+  "address": "5ADLMwFhWfUHd1rxbRa3DZ8mVCZMDoJryfMi1dAxRNpc",
+  "metadata": {
+    "name": "solana_bomber",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "bulk_move_to_map",
+      "docs": [
+        "Bulk move heroes to map (multiple heroes in single transaction)"
+      ],
+      "discriminator": [
+        196,
+        90,
+        108,
+        216,
+        156,
+        154,
+        29,
+        31
+      ],
+      "accounts": [
+        {
+          "name": "global_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "owner",
+          "relations": [
+            "user_account"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "hero_indices",
+          "type": {
+            "vec": "u16"
+          }
+        }
+      ]
+    },
+    {
+      "name": "bulk_place_heroes",
+      "docs": [
+        "Bulk place heroes on grid (multiple heroes in single transaction)"
+      ],
+      "discriminator": [
+        95,
+        70,
+        28,
+        238,
+        110,
+        69,
+        180,
+        243
+      ],
+      "accounts": [
+        {
+          "name": "user_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "owner",
+          "relations": [
+            "user_account"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "placements",
+          "type": {
+            "vec": {
+              "defined": {
+                "name": "HeroPlacement"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "buy_hero",
+      "docs": [
+        "Buy heroes in bulk (1-10 at once, costs 100 coins per hero, applies burn split)"
+      ],
+      "discriminator": [
+        92,
+        199,
+        3,
+        6,
+        179,
+        191,
+        6,
+        193
+      ],
+      "accounts": [
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "owner",
+          "relations": [
+            "user_account"
+          ]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "quantity",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "claim_rewards",
+      "docs": [
+        "Claim mining rewards with time-based calculation and referral bonuses"
+      ],
+      "discriminator": [
+        4,
+        144,
+        132,
+        71,
+        116,
+        23,
+        151,
+        80
+      ],
+      "accounts": [
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "reward_token_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  95,
+                  116,
+                  111,
+                  107,
+                  101,
+                  110,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_token_account",
+          "writable": true
+        },
+        {
+          "name": "referrer_token_account",
+          "writable": true
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "owner",
+          "relations": [
+            "user_account"
+          ]
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "get_game_info",
+      "docs": [
+        "Get global game info"
+      ],
+      "discriminator": [
+        140,
+        141,
+        245,
+        71,
+        227,
+        131,
+        217,
+        93
+      ],
+      "accounts": [
+        {
+          "name": "global_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [],
+      "returns": {
+        "defined": {
+          "name": "GameInfoData"
+        }
+      }
+    },
+    {
+      "name": "get_grid_state",
+      "docs": [
+        "Get grid state with all tiles"
+      ],
+      "discriminator": [
+        2,
+        253,
+        131,
+        153,
+        220,
+        167,
+        230,
+        203
+      ],
+      "accounts": [
+        {
+          "name": "global_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_account",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user_account.owner",
+                "account": "UserAccount"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [],
+      "returns": {
+        "defined": {
+          "name": "GridStateData"
+        }
+      }
+    },
+    {
+      "name": "get_hero_details",
+      "docs": [
+        "Get detailed hero info by index"
+      ],
+      "discriminator": [
+        96,
+        171,
+        94,
+        211,
+        16,
+        1,
+        227,
+        222
+      ],
+      "accounts": [
+        {
+          "name": "global_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_account",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user_account.owner",
+                "account": "UserAccount"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "hero_index",
+          "type": "u16"
+        }
+      ],
+      "returns": {
+        "defined": {
+          "name": "HeroDetailsData"
+        }
+      }
+    },
+    {
+      "name": "get_player_stats",
+      "docs": [
+        "Get comprehensive player stats"
+      ],
+      "discriminator": [
+        158,
+        23,
+        253,
+        137,
+        219,
+        97,
+        125,
+        189
+      ],
+      "accounts": [
+        {
+          "name": "global_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_account",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user_account.owner",
+                "account": "UserAccount"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [],
+      "returns": {
+        "defined": {
+          "name": "PlayerStatsData"
+        }
+      }
+    },
+    {
+      "name": "initialize_global_state",
+      "docs": [
+        "Initialize the global game state with dynamic configuration (admin only, one-time)"
+      ],
+      "discriminator": [
+        232,
+        254,
+        209,
+        244,
+        123,
+        89,
+        154,
+        207
+      ],
+      "accounts": [
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "reward_token_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  95,
+                  116,
+                  111,
+                  107,
+                  101,
+                  110,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "dev_treasury",
+          "type": "pubkey"
+        },
+        {
+          "name": "initial_house_price",
+          "type": "u64"
+        },
+        {
+          "name": "initial_bombcoin_per_block",
+          "type": "u64"
+        },
+        {
+          "name": "halving_interval",
+          "type": "u64"
+        },
+        {
+          "name": "burn_pct",
+          "type": "u16"
+        },
+        {
+          "name": "referral_fee",
+          "type": "u16"
+        },
+        {
+          "name": "rewards_precision",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "move_hero_to_map",
+      "docs": [
+        "Move hero from grid to map (start mining)"
+      ],
+      "discriminator": [
+        53,
+        110,
+        171,
+        227,
+        246,
+        223,
+        85,
+        159
+      ],
+      "accounts": [
+        {
+          "name": "global_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "owner",
+          "relations": [
+            "user_account"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "hero_index",
+          "type": "u16"
+        }
+      ]
+    },
+    {
+      "name": "pending_rewards",
+      "docs": [
+        "Calculate pending rewards without claiming (read-only simulation)"
+      ],
+      "discriminator": [
+        114,
+        17,
+        202,
+        20,
+        98,
+        103,
+        131,
+        55
+      ],
+      "accounts": [
+        {
+          "name": "global_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_account",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user_account.owner",
+                "account": "UserAccount"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [],
+      "returns": {
+        "defined": {
+          "name": "PendingRewardsData"
+        }
+      }
+    },
+    {
+      "name": "place_hero_on_grid",
+      "docs": [
+        "Place hero on grid at specific coordinates with optional restroom flag"
+      ],
+      "discriminator": [
+        110,
+        133,
+        162,
+        140,
+        207,
+        9,
+        0,
+        150
+      ],
+      "accounts": [
+        {
+          "name": "user_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "owner",
+          "relations": [
+            "user_account"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "hero_index",
+          "type": "u16"
+        },
+        {
+          "name": "x",
+          "type": "u8"
+        },
+        {
+          "name": "y",
+          "type": "u8"
+        },
+        {
+          "name": "is_restroom",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "purchase_initial_house",
+      "docs": [
+        "Purchase initial house (entry fee with dynamic SOL price)"
+      ],
+      "discriminator": [
+        21,
+        67,
+        115,
+        101,
+        65,
+        108,
+        99,
+        150
+      ],
+      "accounts": [
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "dev_treasury",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "recover_hp",
+      "docs": [
+        "Recover HP for heroes on grid (location-based multipliers: bench 1x, restroom 3x)"
+      ],
+      "discriminator": [
+        23,
+        164,
+        135,
+        195,
+        40,
+        206,
+        91,
+        80
+      ],
+      "accounts": [
+        {
+          "name": "user_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "owner",
+          "relations": [
+            "user_account"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "remove_hero_from_grid",
+      "docs": [
+        "Remove hero from grid at specific coordinates"
+      ],
+      "discriminator": [
+        246,
+        26,
+        48,
+        95,
+        57,
+        12,
+        125,
+        89
+      ],
+      "accounts": [
+        {
+          "name": "user_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "owner",
+          "relations": [
+            "user_account"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "x",
+          "type": "u8"
+        },
+        {
+          "name": "y",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "set_referrer",
+      "docs": [
+        "Set referrer for a user (can only be set once)"
+      ],
+      "discriminator": [
+        115,
+        251,
+        55,
+        0,
+        166,
+        189,
+        25,
+        74
+      ],
+      "accounts": [
+        {
+          "name": "user_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "owner",
+          "relations": [
+            "user_account"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "referrer_pubkey",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "set_treasury",
+      "docs": [
+        "Update treasury wallet (admin only)"
+      ],
+      "discriminator": [
+        57,
+        97,
+        196,
+        95,
+        195,
+        206,
+        106,
+        136
+      ],
+      "accounts": [
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "new_treasury",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "start_game",
+      "docs": [
+        "Start the game (admin only, can only be called once)"
+      ],
+      "discriminator": [
+        249,
+        47,
+        252,
+        172,
+        184,
+        162,
+        245,
+        14
+      ],
+      "accounts": [
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "toggle_house_upgrades",
+      "docs": [
+        "Toggle house upgrades (admin only)"
+      ],
+      "discriminator": [
+        239,
+        31,
+        59,
+        92,
+        228,
+        113,
+        89,
+        45
+      ],
+      "accounts": [
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "enabled",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "toggle_minting",
+      "docs": [
+        "Toggle hero minting (admin only)"
+      ],
+      "discriminator": [
+        244,
+        16,
+        32,
+        74,
+        151,
+        30,
+        213,
+        114
+      ],
+      "accounts": [
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "enabled",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "toggle_pause",
+      "docs": [
+        "Pause/unpause the game (admin only)"
+      ],
+      "discriminator": [
+        238,
+        237,
+        206,
+        27,
+        255,
+        95,
+        123,
+        229
+      ],
+      "accounts": [
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "paused",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "update_game_config",
+      "docs": [
+        "Update dynamic game configuration (admin only)"
+      ],
+      "discriminator": [
+        180,
+        82,
+        7,
+        205,
+        89,
+        182,
+        61,
+        128
+      ],
+      "accounts": [
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "initial_house_price",
+          "type": {
+            "option": "u64"
+          }
+        },
+        {
+          "name": "initial_bombcoin_per_block",
+          "type": {
+            "option": "u64"
+          }
+        },
+        {
+          "name": "halving_interval",
+          "type": {
+            "option": "u64"
+          }
+        },
+        {
+          "name": "burn_pct",
+          "type": {
+            "option": "u16"
+          }
+        },
+        {
+          "name": "referral_fee",
+          "type": {
+            "option": "u16"
+          }
+        },
+        {
+          "name": "rewards_precision",
+          "type": {
+            "option": "u64"
+          }
+        }
+      ]
+    },
+    {
+      "name": "upgrade_house",
+      "docs": [
+        "Upgrade house to next level (expands grid, costs coins, has cooldown)"
+      ],
+      "discriminator": [
+        126,
+        153,
+        0,
+        116,
+        185,
+        49,
+        118,
+        252
+      ],
+      "accounts": [
+        {
+          "name": "global_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "owner",
+          "relations": [
+            "user_account"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "withdraw_token_funds",
+      "docs": [
+        "Withdraw SPL tokens from contract PDA to treasury (admin only)"
+      ],
+      "discriminator": [
+        102,
+        137,
+        164,
+        1,
+        185,
+        237,
+        148,
+        210
+      ],
+      "accounts": [
+        {
+          "name": "global_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program_token_account",
+          "writable": true
+        },
+        {
+          "name": "treasury_token_account",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "GlobalState",
+      "discriminator": [
+        163,
+        46,
+        74,
+        168,
+        216,
+        123,
+        133,
+        98
+      ]
+    },
+    {
+      "name": "UserAccount",
+      "discriminator": [
+        211,
+        33,
+        136,
+        16,
+        186,
+        110,
+        242,
+        127
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "GamePaused",
+      "msg": "Game is currently paused"
+    },
+    {
+      "code": 6001,
+      "name": "GameNotStarted",
+      "msg": "Game has not started yet"
+    },
+    {
+      "code": 6002,
+      "name": "MintingDisabled",
+      "msg": "Hero minting is currently disabled"
+    },
+    {
+      "code": 6003,
+      "name": "HouseUpgradesDisabled",
+      "msg": "House upgrades are currently disabled"
+    },
+    {
+      "code": 6004,
+      "name": "Unauthorized",
+      "msg": "Unauthorized: Admin only"
+    },
+    {
+      "code": 6005,
+      "name": "InsufficientCoins",
+      "msg": "Insufficient coins for this action"
+    },
+    {
+      "code": 6006,
+      "name": "InsufficientSOL",
+      "msg": "Insufficient SOL for this action"
+    },
+    {
+      "code": 6007,
+      "name": "InvalidBurnPercentage",
+      "msg": "Invalid burn percentage (must be 0-10000)"
+    },
+    {
+      "code": 6008,
+      "name": "InvalidReferralFee",
+      "msg": "Invalid referral fee (must be 0-10000)"
+    },
+    {
+      "code": 6009,
+      "name": "InvalidHeroIndex",
+      "msg": "Invalid hero index"
+    },
+    {
+      "code": 6010,
+      "name": "HeroIsSleeping",
+      "msg": "Hero is sleeping (HP = 0), must recover first"
+    },
+    {
+      "code": 6011,
+      "name": "HeroNotInInventory",
+      "msg": "Hero is not in inventory"
+    },
+    {
+      "code": 6012,
+      "name": "HeroAlreadyOnMap",
+      "msg": "Hero is already on the map"
+    },
+    {
+      "code": 6013,
+      "name": "InvalidHeroQuantity",
+      "msg": "Invalid hero quantity (must be 1-10)"
+    },
+    {
+      "code": 6014,
+      "name": "HouseNotInitialized",
+      "msg": "House not initialized - purchase initial house first"
+    },
+    {
+      "code": 6015,
+      "name": "InvalidGridCoordinates",
+      "msg": "Invalid grid coordinates"
+    },
+    {
+      "code": 6016,
+      "name": "GridPositionOccupied",
+      "msg": "Grid position is already occupied"
+    },
+    {
+      "code": 6017,
+      "name": "GridPositionEmpty",
+      "msg": "Grid position is empty"
+    },
+    {
+      "code": 6018,
+      "name": "HeroNotOnGrid",
+      "msg": "Hero is not on the grid"
+    },
+    {
+      "code": 6019,
+      "name": "MaxHouseLevelReached",
+      "msg": "Maximum house level (6) already reached"
+    },
+    {
+      "code": 6020,
+      "name": "UpgradeCooldownActive",
+      "msg": "House upgrade cooldown is still active"
+    },
+    {
+      "code": 6021,
+      "name": "MapFull",
+      "msg": "Map is full (max 15 heroes)"
+    },
+    {
+      "code": 6022,
+      "name": "NoHeroesOnMap",
+      "msg": "No heroes currently on map"
+    },
+    {
+      "code": 6023,
+      "name": "NoActiveHeroes",
+      "msg": "No active heroes with HP > 0"
+    },
+    {
+      "code": 6024,
+      "name": "RestroomFull",
+      "msg": "Restroom is full"
+    },
+    {
+      "code": 6025,
+      "name": "HeroNotInRestroom",
+      "msg": "Hero is not in a restroom"
+    },
+    {
+      "code": 6026,
+      "name": "NoRewardsToClaim",
+      "msg": "No rewards to claim"
+    },
+    {
+      "code": 6027,
+      "name": "ArithmeticOverflow",
+      "msg": "Arithmetic overflow"
+    },
+    {
+      "code": 6028,
+      "name": "InvalidCalculation",
+      "msg": "Invalid calculation result"
+    },
+    {
+      "code": 6029,
+      "name": "ReferrerAlreadySet",
+      "msg": "Referrer has already been set"
+    },
+    {
+      "code": 6030,
+      "name": "CannotReferSelf",
+      "msg": "Cannot refer yourself"
+    },
+    {
+      "code": 6031,
+      "name": "InvalidReferrer",
+      "msg": "Invalid referrer account"
+    },
+    {
+      "code": 6032,
+      "name": "AlreadyInitialized",
+      "msg": "Account already initialized"
+    },
+    {
+      "code": 6033,
+      "name": "InvalidOwner",
+      "msg": "Invalid account owner"
+    }
+  ],
+  "types": [
+    {
+      "name": "GameInfoData",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "dev_treasury",
+            "type": "pubkey"
+          },
+          {
+            "name": "reward_token_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "game_has_started",
+            "type": "bool"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
+          },
+          {
+            "name": "start_block",
+            "type": "i64"
+          },
+          {
+            "name": "house_count",
+            "type": "u64"
+          },
+          {
+            "name": "unique_heroes_count",
+            "type": "u64"
+          },
+          {
+            "name": "total_hash_power",
+            "type": "u64"
+          },
+          {
+            "name": "initial_house_price",
+            "type": "u64"
+          },
+          {
+            "name": "initial_bombcoin_per_block",
+            "type": "u64"
+          },
+          {
+            "name": "current_bombcoin_per_block",
+            "type": "u64"
+          },
+          {
+            "name": "halving_interval",
+            "type": "u64"
+          },
+          {
+            "name": "burn_pct",
+            "type": "u16"
+          },
+          {
+            "name": "referral_fee",
+            "type": "u16"
+          },
+          {
+            "name": "rewards_precision",
+            "type": "u64"
+          },
+          {
+            "name": "total_mined",
+            "type": "u64"
+          },
+          {
+            "name": "total_burned",
+            "type": "u64"
+          },
+          {
+            "name": "reward_pool",
+            "type": "u64"
+          },
+          {
+            "name": "blocks_until_next_halving",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "GlobalState",
+      "docs": [
+        "Global game state - singleton PDA with dynamic configuration"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "docs": [
+              "Admin authority (owner)"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "dev_treasury",
+            "docs": [
+              "Treasury wallet (bombtoshi)"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "reward_token_mint",
+            "docs": [
+              "BOMBcoin SPL Token mint"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "game_has_started",
+            "docs": [
+              "Has the game started?"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "paused",
+            "docs": [
+              "Emergency pause flag"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "minting_enabled",
+            "docs": [
+              "Granular toggle: Hero minting enabled"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "house_upgrades_enabled",
+            "docs": [
+              "Granular toggle: House upgrades enabled"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "start_block",
+            "docs": [
+              "Block/timestamp when game started"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "house_count",
+            "docs": [
+              "Total number of houses initialized"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "unique_heroes_count",
+            "docs": [
+              "Total unique heroes minted globally"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_hash_power",
+            "docs": [
+              "Total hash power (sum of all active players' power)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "cumulative_bombcoin_per_power",
+            "docs": [
+              "Cumulative BOMBcoin per power (MasterChef-style accounting)"
+            ],
+            "type": "u128"
+          },
+          {
+            "name": "initial_house_price",
+            "docs": [
+              "Initial house purchase price (SOL, in lamports)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "initial_bombcoin_per_block",
+            "docs": [
+              "Base reward rate (BOMBcoin per hour at phase 1)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "halving_interval",
+            "docs": [
+              "Halving interval (supply milestone for rate reduction)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "burn_pct",
+            "docs": [
+              "Burn percentage (0-10000, where 10000 = 100%)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "referral_fee",
+            "docs": [
+              "Referral fee percentage (0-10000, where 10000 = 100%)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "rewards_precision",
+            "docs": [
+              "Rewards calculation precision multiplier"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_mined",
+            "docs": [
+              "Total BOMBcoin mined (for halving logic)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_burned",
+            "docs": [
+              "Total coins burned from hero minting"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "reward_pool",
+            "docs": [
+              "Reward pool from minting fees"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump seed"
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "GridStateData",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "grid_width",
+            "type": "u8"
+          },
+          {
+            "name": "grid_height",
+            "type": "u8"
+          },
+          {
+            "name": "house_level",
+            "type": "u8"
+          },
+          {
+            "name": "occupied_tiles",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "GridTileData"
+                }
+              }
+            }
+          },
+          {
+            "name": "total_tiles",
+            "type": "u64"
+          },
+          {
+            "name": "tiles_occupied",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "GridTileData",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "x",
+            "type": "u8"
+          },
+          {
+            "name": "y",
+            "type": "u8"
+          },
+          {
+            "name": "hero_id",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "is_restroom",
+            "type": "bool"
+          },
+          {
+            "name": "is_empty",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Hero",
+      "docs": [
+        "Individual hero (template-based with 9 skin archetypes)"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "id",
+            "docs": [
+              "Unique ID within user's inventory"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "skin_id",
+            "docs": [
+              "Visual skin template (1-9 fixed archetypes)"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "rarity",
+            "docs": [
+              "Hero rarity (determines stats and drop rate)"
+            ],
+            "type": {
+              "defined": {
+                "name": "HeroRarity"
+              }
+            }
+          },
+          {
+            "name": "power",
+            "docs": [
+              "Power stat (affects HMP and reward)"
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "speed",
+            "docs": [
+              "Speed stat (affects HMP and HP drain)"
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "stamina",
+            "docs": [
+              "Stamina stat (affects HP recovery rate)"
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "max_stamina",
+            "docs": [
+              "Max stamina cap"
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "bomb_number",
+            "docs": [
+              "Bomb count (multiplier for power and HP drain)"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "bomb_range",
+            "docs": [
+              "Bomb range (affects HMP calculation)"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "hp",
+            "docs": [
+              "Current HP"
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "max_hp",
+            "docs": [
+              "Maximum HP"
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "last_action_time",
+            "docs": [
+              "Last action timestamp (for time-delta calculations)"
+            ],
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "HeroDetailsData",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "id",
+            "type": "u16"
+          },
+          {
+            "name": "skin_id",
+            "type": "u8"
+          },
+          {
+            "name": "rarity",
+            "type": {
+              "defined": {
+                "name": "HeroRarity"
+              }
+            }
+          },
+          {
+            "name": "power",
+            "type": "u32"
+          },
+          {
+            "name": "speed",
+            "type": "u32"
+          },
+          {
+            "name": "stamina",
+            "type": "u32"
+          },
+          {
+            "name": "max_stamina",
+            "type": "u32"
+          },
+          {
+            "name": "bomb_number",
+            "type": "u8"
+          },
+          {
+            "name": "bomb_range",
+            "type": "u8"
+          },
+          {
+            "name": "hp",
+            "type": "u32"
+          },
+          {
+            "name": "max_hp",
+            "type": "u32"
+          },
+          {
+            "name": "estimated_current_hp",
+            "type": "u32"
+          },
+          {
+            "name": "hmp",
+            "type": "u64"
+          },
+          {
+            "name": "is_sleeping",
+            "type": "bool"
+          },
+          {
+            "name": "is_on_map",
+            "type": "bool"
+          },
+          {
+            "name": "is_on_grid",
+            "type": "bool"
+          },
+          {
+            "name": "grid_x",
+            "type": {
+              "option": "u8"
+            }
+          },
+          {
+            "name": "grid_y",
+            "type": {
+              "option": "u8"
+            }
+          },
+          {
+            "name": "is_in_restroom",
+            "type": "bool"
+          },
+          {
+            "name": "last_action_time",
+            "type": "i64"
+          },
+          {
+            "name": "elapsed_since_action",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "HeroPlacement",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "hero_index",
+            "type": "u16"
+          },
+          {
+            "name": "x",
+            "type": "u8"
+          },
+          {
+            "name": "y",
+            "type": "u8"
+          },
+          {
+            "name": "is_restroom",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "HeroRarity",
+      "docs": [
+        "Hero rarity tiers (affects drop rates and stat ranges)"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Common"
+          },
+          {
+            "name": "Uncommon"
+          },
+          {
+            "name": "Rare"
+          },
+          {
+            "name": "SuperRare"
+          },
+          {
+            "name": "Epic"
+          },
+          {
+            "name": "Legendary"
+          }
+        ]
+      }
+    },
+    {
+      "name": "HouseTile",
+      "docs": [
+        "House tile in the grid (each position can contain a hero)"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "x",
+            "docs": [
+              "X coordinate in grid"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "y",
+            "docs": [
+              "Y coordinate in grid"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "hero_id",
+            "docs": [
+              "Hero inventory index (u16::MAX if empty)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "is_restroom",
+            "docs": [
+              "Is this tile a restroom (boosted recovery)?"
+            ],
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PendingRewardsData",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "gross_reward",
+            "type": "u64"
+          },
+          {
+            "name": "net_reward",
+            "type": "u64"
+          },
+          {
+            "name": "referral_bonus",
+            "type": "u64"
+          },
+          {
+            "name": "total_hmp",
+            "type": "u64"
+          },
+          {
+            "name": "active_hero_count",
+            "type": "u16"
+          },
+          {
+            "name": "elapsed_seconds",
+            "type": "u64"
+          },
+          {
+            "name": "current_bombcoin_per_block",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PlayerStatsData",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "house_level",
+            "type": "u8"
+          },
+          {
+            "name": "grid_width",
+            "type": "u8"
+          },
+          {
+            "name": "grid_height",
+            "type": "u8"
+          },
+          {
+            "name": "coin_balance",
+            "type": "u64"
+          },
+          {
+            "name": "player_power",
+            "type": "u64"
+          },
+          {
+            "name": "heroes_total",
+            "type": "u64"
+          },
+          {
+            "name": "heroes_on_map",
+            "type": "u64"
+          },
+          {
+            "name": "heroes_on_grid",
+            "type": "u64"
+          },
+          {
+            "name": "heroes_in_restroom",
+            "type": "u64"
+          },
+          {
+            "name": "heroes_sleeping",
+            "type": "u64"
+          },
+          {
+            "name": "max_restroom_slots",
+            "type": "u64"
+          },
+          {
+            "name": "restroom_slots_used",
+            "type": "u64"
+          },
+          {
+            "name": "next_upgrade_cost",
+            "type": "u64"
+          },
+          {
+            "name": "upgrade_cooldown_remaining",
+            "type": "i64"
+          },
+          {
+            "name": "can_upgrade",
+            "type": "bool"
+          },
+          {
+            "name": "referrer",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "referral_bonus_paid",
+            "type": "u64"
+          },
+          {
+            "name": "referral_count",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UserAccount",
+      "docs": [
+        "Per-player account - stores all game state for one user"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "docs": [
+              "Owner wallet"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "initialized_starter_house",
+            "docs": [
+              "Has player purchased initial house?"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "house_level",
+            "docs": [
+              "Current house level (1-6)"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "last_house_upgrade_timestamp",
+            "docs": [
+              "Timestamp of last house upgrade (for cooldown)"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "grid_width",
+            "docs": [
+              "Grid dimensions based on house level"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "grid_height",
+            "type": "u8"
+          },
+          {
+            "name": "house_occupied_coords",
+            "docs": [
+              "House grid tiles (expandable matrix)",
+              "Vector of occupied tiles with coordinates and hero IDs"
+            ],
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "HouseTile"
+                }
+              }
+            }
+          },
+          {
+            "name": "inventory",
+            "docs": [
+              "All owned heroes (unlimited capacity)"
+            ],
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "Hero"
+                }
+              }
+            }
+          },
+          {
+            "name": "active_map",
+            "docs": [
+              "Heroes currently active on map (mining)",
+              "Stores indices into inventory Vec"
+            ],
+            "type": {
+              "vec": "u16"
+            }
+          },
+          {
+            "name": "coin_balance",
+            "docs": [
+              "In-game coin balance (not SPL tokens)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "player_power",
+            "docs": [
+              "Total mining power (cached sum of active heroes' HMP)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "player_pending_rewards",
+            "docs": [
+              "Pending unclaimed BOMBcoin rewards"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "last_reward_block",
+            "docs": [
+              "Last block when rewards were claimed"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "reward_debt",
+            "docs": [
+              "Reward debt (for MasterChef accounting)"
+            ],
+            "type": "u128"
+          },
+          {
+            "name": "referrer",
+            "docs": [
+              "Referrer wallet (can only be set once)"
+            ],
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "referral_bonus_paid",
+            "docs": [
+              "Total bonus paid from referrals"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "referrals",
+            "docs": [
+              "List of users referred by this player"
+            ],
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump seed"
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}
