@@ -204,6 +204,20 @@ pub mod solana_bomber {
         Ok(())
     }
 
+    /// Admin: Mint test coins to a user (for testing only)
+    pub fn admin_mint_test_coins(
+        ctx: Context<AdminMintTestCoins>,
+        amount: u64,
+    ) -> Result<()> {
+        let user_account = &mut ctx.accounts.user_account;
+
+        user_account.coin_balance = user_account.coin_balance.checked_add(amount)
+            .ok_or(GameError::ArithmeticOverflow)?;
+
+        msg!("Admin minted {} test coins to user: {}", amount, ctx.accounts.target_user.key());
+        Ok(())
+    }
+
     // ========================================================================
     // USER FUNCTIONS
     // ========================================================================
@@ -304,12 +318,16 @@ pub mod solana_bomber {
         global_state.reward_pool += treasury_amount;
 
         // Mint heroes
-        for _i in 0..quantity {
+        for i in 0..quantity {
             let hero_id = user_account.inventory.len() as u16;
+            // CRITICAL FIX: Add loop index to ensure unique randomness per hero in bulk mints
+            let modified_timestamp = clock.unix_timestamp.wrapping_add(i as i64);
+            let modified_slot = clock.slot.wrapping_add(i as u64);
+
             let hero = generate_hero(
                 hero_id,
-                clock.unix_timestamp,
-                clock.slot,
+                modified_timestamp,
+                modified_slot,
                 user_account.owner,
                 global_state.unique_heroes_count,
             )?;
@@ -577,134 +595,202 @@ pub mod solana_bomber {
     }
 
     /// Bulk move heroes to map (multiple heroes in single transaction)
+    /// MasterChef pattern: update_pool → harvest → modify power → update debt
     pub fn bulk_move_to_map(
         ctx: Context<MoveHeroToMap>,
         hero_indices: Vec<u16>,
     ) -> Result<()> {
-        let global_state = &ctx.accounts.global_state;
-        let user_account = &mut ctx.accounts.user_account;
         let clock = Clock::get()?;
+        let current_time = clock.unix_timestamp;
 
-        require!(!global_state.paused, GameError::GamePaused);
+        require!(!ctx.accounts.global_state.paused, GameError::GamePaused);
+
+        // STEP 1: Update global pool BEFORE any user action
+        update_pool(&mut ctx.accounts.global_state, current_time)?;
+
+        // STEP 2: Harvest pending rewards BEFORE changing user's power
+        let old_power = ctx.accounts.user_account.player_power;
+        harvest_pending_rewards(&ctx.accounts.global_state, &mut ctx.accounts.user_account)?;
 
         // Pre-validate all heroes before making any changes
         for &hero_index in &hero_indices {
             // Validate hero exists
             require!(
-                (hero_index as usize) < user_account.inventory.len(),
+                (hero_index as usize) < ctx.accounts.user_account.inventory.len(),
                 GameError::InvalidHeroIndex
             );
 
             // Hero must not already be on map
             require!(
-                !user_account.active_map.contains(&hero_index),
+                !ctx.accounts.user_account.active_map.contains(&hero_index),
                 GameError::HeroAlreadyOnMap
             );
 
             // Check hero HP
             require!(
-                !user_account.inventory[hero_index as usize].is_sleeping(),
+                !ctx.accounts.user_account.inventory[hero_index as usize].is_sleeping(),
                 GameError::HeroIsSleeping
             );
         }
 
         // Check map capacity
-        let new_map_size = user_account.active_map.len() + hero_indices.len();
+        let new_map_size = ctx.accounts.user_account.active_map.len() + hero_indices.len();
         require!(new_map_size <= 15, GameError::MapFull);
 
         // All validations passed - now move all heroes
         for hero_index in hero_indices {
             // Remove from grid if present
-            if let Some(pos) = user_account
+            if let Some(pos) = ctx.accounts.user_account
                 .house_occupied_coords
                 .iter()
                 .position(|tile| tile.hero_id == hero_index)
             {
-                user_account.house_occupied_coords.remove(pos);
+                ctx.accounts.user_account.house_occupied_coords.remove(pos);
             }
 
             // Set mining start time
-            user_account.inventory[hero_index as usize].last_action_time = clock.unix_timestamp;
+            ctx.accounts.user_account.inventory[hero_index as usize].last_action_time = current_time;
 
             // Add to map
-            user_account.active_map.push(hero_index);
+            ctx.accounts.user_account.active_map.push(hero_index);
 
             msg!("Hero {} moved to map", hero_index);
         }
 
-        // Update player power once at the end (efficient)
-        user_account.player_power = user_account
+        // STEP 3: Calculate new player power after adding heroes
+        let new_power: u64 = ctx.accounts.user_account
             .active_map
             .iter()
-            .filter_map(|&idx| user_account.inventory.get(idx as usize))
+            .filter_map(|&idx| ctx.accounts.user_account.inventory.get(idx as usize))
             .filter(|h| h.is_active())
             .map(|h| h.calculate_hmp() as u64)
             .sum();
 
+        ctx.accounts.user_account.player_power = new_power;
+
+        // STEP 4: Update global total_hash_power
+        // Properly handle both power increases and decreases
+        if new_power > old_power {
+            let power_delta = new_power - old_power;
+            ctx.accounts.global_state.total_hash_power = ctx.accounts.global_state.total_hash_power
+                .checked_add(power_delta)
+                .ok_or(GameError::ArithmeticOverflow)?;
+        } else if old_power > new_power {
+            let power_delta = old_power - new_power;
+            ctx.accounts.global_state.total_hash_power = ctx.accounts.global_state.total_hash_power
+                .saturating_sub(power_delta);
+        }
+        // If equal, no change needed
+
+        // STEP 5: Update user's reward_debt = new_power * acc_per_power
+        let precision = ctx.accounts.global_state.rewards_precision as u128;
+        ctx.accounts.user_account.reward_debt = (new_power as u128)
+            .checked_mul(ctx.accounts.global_state.cumulative_bombcoin_per_power)
+            .ok_or(GameError::ArithmeticOverflow)?;
+
         msg!(
-            "Bulk moved {} heroes to map, player power: {}",
-            user_account.active_map.len(),
-            user_account.player_power
+            "Bulk moved {} heroes to map: power {} → {}, global_power: {}, debt: {}",
+            ctx.accounts.user_account.active_map.len(),
+            old_power,
+            new_power,
+            ctx.accounts.global_state.total_hash_power,
+            ctx.accounts.user_account.reward_debt
         );
 
         Ok(())
     }
 
-    /// Claim mining rewards with time-based calculation and referral bonuses
+    /// Remove a single hero from map (stops mining)
+    /// MasterChef pattern: update_pool → harvest → modify power → update debt
+    pub fn remove_from_map(
+        ctx: Context<MoveHeroToMap>,
+        hero_index: u16,
+    ) -> Result<()> {
+        let clock = Clock::get()?;
+        let current_time = clock.unix_timestamp;
+
+        require!(!ctx.accounts.global_state.paused, GameError::GamePaused);
+
+        // Validate hero is on map
+        require!(
+            ctx.accounts.user_account.active_map.contains(&hero_index),
+            GameError::HeroNotOnMap
+        );
+
+        // STEP 1: Update global pool BEFORE any user action
+        update_pool(&mut ctx.accounts.global_state, current_time)?;
+
+        // STEP 2: Harvest pending rewards BEFORE changing user's power
+        let old_power = ctx.accounts.user_account.player_power;
+        harvest_pending_rewards(&ctx.accounts.global_state, &mut ctx.accounts.user_account)?;
+
+        // STEP 3: Remove hero from map
+        ctx.accounts.user_account.active_map.retain(|&idx| idx != hero_index);
+
+        // Update hero timestamp
+        ctx.accounts.user_account.inventory[hero_index as usize].last_action_time = current_time;
+
+        // STEP 4: Calculate new player power after removing hero
+        let new_power: u64 = ctx.accounts.user_account
+            .active_map
+            .iter()
+            .filter_map(|&idx| ctx.accounts.user_account.inventory.get(idx as usize))
+            .filter(|h| h.is_active())
+            .map(|h| h.calculate_hmp() as u64)
+            .sum();
+
+        ctx.accounts.user_account.player_power = new_power;
+
+        // STEP 5: Update global total_hash_power
+        let power_delta = old_power.saturating_sub(new_power);
+        ctx.accounts.global_state.total_hash_power = ctx.accounts.global_state.total_hash_power
+            .saturating_sub(power_delta);
+
+        // STEP 6: Update user's reward_debt = new_power * acc_per_power
+        ctx.accounts.user_account.reward_debt = (new_power as u128)
+            .checked_mul(ctx.accounts.global_state.cumulative_bombcoin_per_power)
+            .ok_or(GameError::ArithmeticOverflow)?;
+
+        msg!(
+            "Removed hero {} from map: power {} → {}, global_power: {}",
+            hero_index,
+            old_power,
+            new_power,
+            ctx.accounts.global_state.total_hash_power
+        );
+
+        Ok(())
+    }
+
+    /// Claim mining rewards with MasterChef model
     pub fn claim_rewards(ctx: Context<ClaimRewards>) -> Result<()> {
         let clock = Clock::get()?;
+        let current_time = clock.unix_timestamp;
 
         // Early validations
         require!(!ctx.accounts.global_state.paused, GameError::GamePaused);
-        require!(!ctx.accounts.user_account.active_map.is_empty(), GameError::NoHeroesOnMap);
 
-        let current_time = clock.unix_timestamp;
-        let mut total_hmp: u64 = 0;
-        let mut earliest_time = current_time;
+        // Step 1: Update global pool (must be first!)
+        update_pool(&mut ctx.accounts.global_state, current_time)?;
 
-        // Calculate total HMP and apply HP drain
+        // Step 2: Harvest any pending rewards (auto-claim before modifications)
+        harvest_pending_rewards(&ctx.accounts.global_state, &mut ctx.accounts.user_account)?;
+
+        // Step 3: Apply HP drain to all mining heroes
         let active_map_copy = ctx.accounts.user_account.active_map.clone();
         for hero_index in active_map_copy {
             let hero = &mut ctx.accounts.user_account.inventory[hero_index as usize];
 
-            if hero.is_sleeping() {
-                continue;
+            if !hero.is_sleeping() {
+                let elapsed = (current_time - hero.last_action_time) as u64;
+                let hp_drain = hero.calculate_hp_drain(elapsed);
+                hero.hp = hero.hp.saturating_sub(hp_drain);
+                hero.last_action_time = current_time;
             }
-
-            let elapsed = (current_time - hero.last_action_time) as u64;
-
-            // Calculate HP drain (Speed-based)
-            let hp_drain = hero.calculate_hp_drain(elapsed);
-            hero.hp = hero.hp.saturating_sub(hp_drain);
-
-            // Track earliest action time
-            if hero.last_action_time < earliest_time {
-                earliest_time = hero.last_action_time;
-            }
-
-            // Add to total HMP if still alive
-            if hero.is_active() {
-                total_hmp += hero.calculate_hmp() as u64;
-            }
-
-            hero.last_action_time = current_time;
         }
 
-        require!(total_hmp > 0, GameError::NoActiveHeroes);
-
-        // Calculate elapsed time
-        let elapsed_seconds = (current_time - earliest_time) as u64;
-
-        // Get current reward rate with halving
-        let bombcoin_per_block = ctx.accounts.global_state.get_bombcoin_per_block();
-
-        // Calculate gross reward using utility function
-        let gross_reward = calculate_mining_reward(
-            elapsed_seconds,
-            total_hmp,
-            bombcoin_per_block,
-            ctx.accounts.global_state.rewards_precision,
-        );
+        // Step 4: Get total pending rewards to mint
+        let gross_reward = ctx.accounts.user_account.player_pending_rewards;
 
         require!(gross_reward > 0, GameError::NoRewardsToClaim);
 
@@ -763,16 +849,48 @@ pub mod solana_bomber {
         // Add coins to internal balance for hero minting
         ctx.accounts.user_account.coin_balance += net_reward;
 
-        // Update player power
-        ctx.accounts.user_account.player_power = total_hmp;
+        // Reset pending rewards (they've been minted)
+        ctx.accounts.user_account.player_pending_rewards = 0;
+
+        // Recalculate current total HMP for player power (only alive heroes count)
+        let old_power = ctx.accounts.user_account.player_power;
+        let current_total_hmp: u64 = ctx.accounts.user_account.active_map
+            .iter()
+            .filter_map(|&idx| ctx.accounts.user_account.inventory.get(idx as usize))
+            .filter(|h| h.is_active())
+            .map(|h| h.calculate_hmp() as u64)
+            .sum();
+
+        ctx.accounts.user_account.player_power = current_total_hmp;
+
+        // Update global total_hash_power if power changed (heroes died)
+        if current_total_hmp != old_power {
+            if current_total_hmp > old_power {
+                let power_delta = current_total_hmp - old_power;
+                ctx.accounts.global_state.total_hash_power = ctx.accounts.global_state.total_hash_power
+                    .checked_add(power_delta)
+                    .ok_or(GameError::ArithmeticOverflow)?;
+            } else {
+                let power_delta = old_power - current_total_hmp;
+                ctx.accounts.global_state.total_hash_power = ctx.accounts.global_state.total_hash_power
+                    .saturating_sub(power_delta);
+            }
+        }
+
+        // Update reward_debt = user.power * acc_per_power
+        // This prevents double-claiming
+        let precision = ctx.accounts.global_state.rewards_precision as u128;
+        ctx.accounts.user_account.reward_debt = (current_total_hmp as u128)
+            .checked_mul(ctx.accounts.global_state.cumulative_bombcoin_per_power)
+            .ok_or(GameError::ArithmeticOverflow)?;
 
         msg!(
-            "Claimed {} coins (net: {}, referral: {}), HMP: {}, Elapsed: {}s",
+            "Claimed {} coins (net: {}, referral: {}), Current HMP: {}, New debt: {}",
             gross_reward,
             net_reward,
             referral_bonus,
-            total_hmp,
-            elapsed_seconds
+            current_total_hmp,
+            ctx.accounts.user_account.reward_debt
         );
 
         Ok(())
@@ -1135,6 +1253,102 @@ pub mod solana_bomber {
 }
 
 // ============================================================================
+// MASTERCHEF HELPER FUNCTIONS (Outside #[program] module)
+// ============================================================================
+
+/// Update global pool accumulator (MasterChef-style)
+/// MUST be called before ANY user action that affects power or rewards
+///
+/// Formula: acc_bombcoin_per_power += (elapsed_time * emission_rate) / total_hash_power
+///
+/// This ensures fair reward distribution based on % of global hash power
+fn update_pool(global_state: &mut GlobalState, current_time: i64) -> Result<()> {
+    // If no one is mining, nothing to update
+    if global_state.total_hash_power == 0 {
+        return Ok(());
+    }
+
+    // If game hasn't started, nothing to update
+    if global_state.start_block == 0 {
+        return Ok(());
+    }
+
+    // Calculate elapsed time since game start
+    let elapsed = (current_time - global_state.start_block) as u64;
+
+    // Get current emission rate (BOMBcoin per second)
+    // initial_bombcoin_per_block is actually per second in our model
+    let emission_rate = global_state.get_bombcoin_per_block();
+
+    // Calculate total coins emitted since game start
+    let total_emitted = elapsed.checked_mul(emission_rate)
+        .ok_or(GameError::ArithmeticOverflow)?;
+
+    // Calculate acc_bombcoin_per_power using high precision
+    // Formula: (total_emitted * PRECISION) / total_hash_power
+    let precision = global_state.rewards_precision as u128;
+    let total_emitted_scaled = (total_emitted as u128).checked_mul(precision)
+        .ok_or(GameError::ArithmeticOverflow)?;
+
+    let new_acc = total_emitted_scaled.checked_div(global_state.total_hash_power as u128)
+        .ok_or(GameError::DivisionByZero)?;
+
+    global_state.cumulative_bombcoin_per_power = new_acc;
+
+    msg!(
+        "Pool updated: acc_per_power={}, total_power={}, emission_rate={}/s",
+        new_acc,
+        global_state.total_hash_power,
+        emission_rate
+    );
+
+    Ok(())
+}
+
+/// Harvest pending rewards for a user (auto-claim before power changes)
+///
+/// Formula: pending = (user.power * pool.acc_bombcoin_per_power / PRECISION) - user.reward_debt
+///
+/// Adds pending rewards to player_pending_rewards for later minting
+fn harvest_pending_rewards(
+    global_state: &GlobalState,
+    user_account: &mut UserAccount,
+) -> Result<u64> {
+    // If user has no power, nothing to harvest
+    if user_account.player_power == 0 {
+        return Ok(0);
+    }
+
+    let precision = global_state.rewards_precision as u128;
+
+    // Calculate total earned: (user_power * acc_per_power) / PRECISION
+    let total_earned_scaled = (user_account.player_power as u128)
+        .checked_mul(global_state.cumulative_bombcoin_per_power)
+        .ok_or(GameError::ArithmeticOverflow)?;
+
+    let total_earned = total_earned_scaled.checked_div(precision)
+        .ok_or(GameError::DivisionByZero)? as u64;
+
+    // Calculate pending: total_earned - reward_debt
+    // reward_debt tracks what we've already paid out
+    let reward_debt_coins = (user_account.reward_debt.checked_div(precision)
+        .ok_or(GameError::DivisionByZero)?) as u64;
+
+    let pending = total_earned.saturating_sub(reward_debt_coins);
+
+    if pending > 0 {
+        // Add to pending rewards (will be minted in claim_rewards)
+        user_account.player_pending_rewards = user_account.player_pending_rewards
+            .checked_add(pending)
+            .ok_or(GameError::ArithmeticOverflow)?;
+
+        msg!("Harvested {} pending rewards for user", pending);
+    }
+
+    Ok(pending)
+}
+
+// ============================================================================
 // ACCOUNT CONTEXTS
 // ============================================================================
 
@@ -1254,6 +1468,7 @@ pub struct ModifyGrid<'info> {
 #[derive(Accounts)]
 pub struct MoveHeroToMap<'info> {
     #[account(
+        mut,
         seeds = [b"global_state"],
         bump = global_state.bump
     )]
@@ -1386,6 +1601,28 @@ pub struct WithdrawTokenFunds<'info> {
     pub authority: Signer<'info>,
 
     pub token_program: Program<'info, Token>,
+}
+
+#[derive(Accounts)]
+pub struct AdminMintTestCoins<'info> {
+    #[account(
+        seeds = [b"global_state"],
+        bump = global_state.bump,
+        has_one = authority
+    )]
+    pub global_state: Account<'info, GlobalState>,
+
+    #[account(
+        mut,
+        seeds = [b"user_account", target_user.key().as_ref()],
+        bump = user_account.bump
+    )]
+    pub user_account: Account<'info, UserAccount>,
+
+    /// CHECK: This is the user receiving the test coins
+    pub target_user: AccountInfo<'info>,
+
+    pub authority: Signer<'info>,
 }
 
 #[derive(Accounts)]

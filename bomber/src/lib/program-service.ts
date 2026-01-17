@@ -1,6 +1,6 @@
-import { Connection, PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
+import { Connection, PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY, Transaction } from "@solana/web3.js";
 import { Program, AnchorProvider, Idl, BN } from "@coral-xyz/anchor";
-import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from "@solana/spl-token";
+import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { PROGRAM_ID, getGlobalStatePDA, getUserAccountPDA, getRewardTokenMintPDA } from "./solana-config";
 import IDL_JSON from "./idl.json";
 
@@ -192,6 +192,27 @@ export class SolanaBomberService {
       .rpc();
   }
 
+  async adminMintTestCoins(targetUser: PublicKey, amount: number) {
+    const [globalState] = getGlobalStatePDA();
+    const [userAccount] = getUserAccountPDA(targetUser);
+
+    console.log("💰 Minting test coins:", {
+      targetUser: targetUser.toString(),
+      amount,
+      authority: this.provider.publicKey?.toString()
+    });
+
+    return await this.program.methods
+      .adminMintTestCoins(new BN(amount))
+      .accounts({
+        globalState,
+        userAccount,
+        targetUser,
+        authority: this.provider.publicKey,
+      })
+      .rpc();
+  }
+
   // ==================== USER FUNCTIONS ====================
 
   async purchaseInitialHouse(devTreasury: PublicKey) {
@@ -280,6 +301,21 @@ export class SolanaBomberService {
       .rpc();
   }
 
+  async removeFromMap(heroIndex: number) {
+    const [globalState] = getGlobalStatePDA();
+    const [userAccount] = getUserAccountPDA(this.provider.publicKey!);
+
+    return await this.program.methods
+      .removeFromMap(heroIndex)
+      .accounts({
+        globalState,
+        userAccount,
+        user: this.provider.publicKey,
+        owner: this.provider.publicKey,
+      })
+      .rpc();
+  }
+
   // ==================== NEW BULK FUNCTIONS ====================
 
   async bulkPlaceHeroes(placements: Array<{ heroIndex: number; x: number; y: number; isRestroom: boolean }>) {
@@ -319,6 +355,26 @@ export class SolanaBomberService {
       rewardTokenMint,
       this.provider.publicKey!
     );
+
+    // Check if user token account exists, create if needed
+    const accountInfo = await this.connection.getAccountInfo(userTokenAccount);
+    if (!accountInfo) {
+      console.log("💰 Creating user token account for rewards...");
+
+      const transaction = new Transaction().add(
+        createAssociatedTokenAccountInstruction(
+          this.provider.publicKey!, // payer
+          userTokenAccount, // ata
+          this.provider.publicKey!, // owner
+          rewardTokenMint, // mint
+          TOKEN_PROGRAM_ID,
+          ASSOCIATED_TOKEN_PROGRAM_ID
+        )
+      );
+
+      const signature = await this.provider.sendAndConfirm(transaction);
+      console.log("✅ Token account created:", signature);
+    }
 
     return await this.program.methods
       .claimRewards()

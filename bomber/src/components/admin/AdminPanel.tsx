@@ -105,6 +105,9 @@ export default function AdminPanel() {
       console.log("✅ Game initialized successfully!");
       console.log("📝 Transaction signature:", sig);
       console.log("➡️ Next step: Click 'Start Game' to begin accepting players");
+
+      // Refresh game state
+      await fetchGameState();
     } catch (error: any) {
       console.error("❌ Error initializing game:", {
         message: error.message,
@@ -139,6 +142,9 @@ export default function AdminPanel() {
       console.log("📝 Transaction signature:", sig);
       console.log("🎮 Users can now purchase houses and play!");
       console.log("💡 Go to Stats tab to view game statistics");
+
+      // Refresh game state
+      await fetchGameState();
     } catch (error: any) {
       console.error("❌ Error starting game:", {
         message: error.message,
@@ -170,6 +176,9 @@ export default function AdminPanel() {
 
       console.log(`✅ Game ${newState ? 'paused' : 'resumed'} successfully!`);
       console.log("📝 Transaction signature:", sig);
+
+      // Refresh game state
+      await fetchGameState();
     } catch (error: any) {
       console.error(`❌ Error ${newState ? 'pausing' : 'resuming'} game:`, {
         message: error.message,
@@ -235,17 +244,19 @@ export default function AdminPanel() {
   const adminActions = [
     {
       title: "Initialize Game",
-      description: "ONE-TIME: Create global state and setup game (Admin only)",
+      description: gameInitialized ? "✓ Already initialized" : "ONE-TIME: Create global state and setup game (Admin only)",
       icon: Rocket,
       color: "bg-purple-500",
       action: handleInitialize,
+      disabled: gameInitialized,
     },
     {
       title: "Start Game",
-      description: "Start accepting players (run after initialization)",
+      description: gameStarted ? "✓ Already started" : "Start accepting players (run after initialization)",
       icon: Play,
       color: "bg-green-500",
       action: handleStartGame,
+      disabled: !gameInitialized || gameStarted,
     },
     {
       title: paused ? "Resume Game" : "Pause Game",
@@ -295,14 +306,29 @@ export default function AdminPanel() {
         </p>
       </div>
 
-      {/* Important Notice */}
-      <Card className="bg-blue-500/10 border-blue-500/50">
+      {/* Game Status Info */}
+      <Card className={`${gameStarted ? 'bg-green-500/10 border-green-500/50' : 'bg-blue-500/10 border-blue-500/50'}`}>
         <CardContent className="p-4">
-          <p className="text-blue-200 text-sm">
-            ℹ️ <strong>Status Check:</strong> The game has been initialized but may not be started yet.
-            If you get "simulation failed" errors when clicking "Initialize Game", it means the game is already initialized.
-            Click <strong>"Start Game"</strong> (green card) instead to begin accepting players.
-          </p>
+          <div className="flex items-start gap-3">
+            <div>
+              {gameStarted ? (
+                <p className="text-green-200 text-sm">
+                  ✅ <strong>Game is Running!</strong> The game has been initialized and started.
+                  {paused ? " (Currently PAUSED)" : " Players can now purchase houses and play!"}
+                </p>
+              ) : gameInitialized ? (
+                <p className="text-blue-200 text-sm">
+                  ⏳ <strong>Game Initialized:</strong> The game has been initialized but not started yet.
+                  Click <strong>"Start Game"</strong> (green card) to begin accepting players.
+                </p>
+              ) : (
+                <p className="text-blue-200 text-sm">
+                  🚀 <strong>Ready to Initialize:</strong> Click <strong>"Initialize Game"</strong> (purple card) to create the global state.
+                  This is a one-time operation that sets up the game economy.
+                </p>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -330,11 +356,11 @@ export default function AdminPanel() {
               <CardContent>
                 <Button
                   onClick={item.action}
-                  disabled={loading}
+                  disabled={loading || item.disabled}
                   className="w-full"
                   variant="outline"
                 >
-                  Execute
+                  {item.disabled ? "Disabled" : "Execute"}
                 </Button>
               </CardContent>
             </Card>

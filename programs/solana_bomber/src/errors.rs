@@ -76,6 +76,9 @@ pub enum GameError {
     #[msg("No heroes currently on map")]
     NoHeroesOnMap,
 
+    #[msg("Hero is not on the map")]
+    HeroNotOnMap,
+
     #[msg("No active heroes with HP > 0")]
     NoActiveHeroes,
 
@@ -92,6 +95,9 @@ pub enum GameError {
 
     #[msg("Arithmetic overflow")]
     ArithmeticOverflow,
+
+    #[msg("Division by zero")]
+    DivisionByZero,
 
     #[msg("Invalid calculation result")]
     InvalidCalculation,

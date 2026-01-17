@@ -429,8 +429,8 @@ impl UserAccount {
         8 + // last_house_upgrade_timestamp
         1 + // grid_width
         1 + // grid_height
-        4 + (50 * 6) + // house_occupied_coords (max ~50 tiles)
-        4 + (100 * 120) + // inventory (max ~100 heroes, ~120 bytes each)
+        4 + (30 * 6) + // house_occupied_coords (max ~30 tiles, reduced from 50)
+        4 + (50 * 120) + // inventory (max ~50 heroes, reduced from 100)
         4 + (15 * 2) + // active_map (max 15 heroes)
         8 + // coin_balance
         8 + // player_power
@@ -439,7 +439,7 @@ impl UserAccount {
         16 + // reward_debt
         1 + 32 + // referrer (Option<Pubkey>)
         8 + // referral_bonus_paid
-        4 + (50 * 32) + // referrals (max ~50 referrals)
+        4 + (20 * 32) + // referrals (max ~20 referrals, reduced from 50)
         1; // bump
 
     /// Get current house upgrade cost

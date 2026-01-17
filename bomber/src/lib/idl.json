@@ -8,9 +8,97 @@
   },
   "instructions": [
     {
+      "name": "admin_mint_test_coins",
+      "docs": [
+        "Admin: Mint test coins to a user (for testing only)"
+      ],
+      "discriminator": [
+        91,
+        64,
+        90,
+        162,
+        33,
+        38,
+        23,
+        4
+      ],
+      "accounts": [
+        {
+          "name": "global_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "target_user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "target_user"
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "global_state"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "bulk_move_to_map",
       "docs": [
-        "Bulk move heroes to map (multiple heroes in single transaction)"
+        "Bulk move heroes to map (multiple heroes in single transaction)",
+        "MasterChef pattern: update_pool → harvest → modify power → update debt"
       ],
       "discriminator": [
         196,
@@ -25,6 +113,7 @@
       "accounts": [
         {
           "name": "global_state",
+          "writable": true,
           "pda": {
             "seeds": [
               {
@@ -263,7 +352,7 @@
     {
       "name": "claim_rewards",
       "docs": [
-        "Claim mining rewards with time-based calculation and referral bonuses"
+        "Claim mining rewards with MasterChef model"
       ],
       "discriminator": [
         4,
@@ -808,6 +897,7 @@
       "accounts": [
         {
           "name": "global_state",
+          "writable": true,
           "pda": {
             "seeds": [
               {
@@ -1175,6 +1265,96 @@
         }
       ],
       "args": []
+    },
+    {
+      "name": "remove_from_map",
+      "docs": [
+        "Remove a single hero from map (stops mining)",
+        "MasterChef pattern: update_pool → harvest → modify power → update debt"
+      ],
+      "discriminator": [
+        12,
+        158,
+        205,
+        255,
+        23,
+        64,
+        170,
+        251
+      ],
+      "accounts": [
+        {
+          "name": "global_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "owner",
+          "relations": [
+            "user_account"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "hero_index",
+          "type": "u16"
+        }
+      ]
     },
     {
       "name": "remove_hero_from_grid",
@@ -1968,56 +2148,66 @@
     },
     {
       "code": 6023,
+      "name": "HeroNotOnMap",
+      "msg": "Hero is not on the map"
+    },
+    {
+      "code": 6024,
       "name": "NoActiveHeroes",
       "msg": "No active heroes with HP > 0"
     },
     {
-      "code": 6024,
+      "code": 6025,
       "name": "RestroomFull",
       "msg": "Restroom is full"
     },
     {
-      "code": 6025,
+      "code": 6026,
       "name": "HeroNotInRestroom",
       "msg": "Hero is not in a restroom"
     },
     {
-      "code": 6026,
+      "code": 6027,
       "name": "NoRewardsToClaim",
       "msg": "No rewards to claim"
     },
     {
-      "code": 6027,
+      "code": 6028,
       "name": "ArithmeticOverflow",
       "msg": "Arithmetic overflow"
     },
     {
-      "code": 6028,
+      "code": 6029,
+      "name": "DivisionByZero",
+      "msg": "Division by zero"
+    },
+    {
+      "code": 6030,
       "name": "InvalidCalculation",
       "msg": "Invalid calculation result"
     },
     {
-      "code": 6029,
+      "code": 6031,
       "name": "ReferrerAlreadySet",
       "msg": "Referrer has already been set"
     },
     {
-      "code": 6030,
+      "code": 6032,
       "name": "CannotReferSelf",
       "msg": "Cannot refer yourself"
     },
     {
-      "code": 6031,
+      "code": 6033,
       "name": "InvalidReferrer",
       "msg": "Invalid referrer account"
     },
     {
-      "code": 6032,
+      "code": 6034,
       "name": "AlreadyInitialized",
       "msg": "Account already initialized"
     },
     {
-      "code": 6033,
+      "code": 6035,
       "name": "InvalidOwner",
       "msg": "Invalid account owner"
     }
